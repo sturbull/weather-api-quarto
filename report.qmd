@@ -9,6 +9,8 @@ format:
       light: [default, styles.scss]
       dark: [darkly, styles.scss]
     respect-user-color-scheme: true
+    include-in-header:
+      text: '<link rel="icon" href="favicon.ico">'
 execute:
   echo: false
   warning: false

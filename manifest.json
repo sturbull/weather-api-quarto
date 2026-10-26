@@ -3260,11 +3260,14 @@
     }
   },
   "files": {
+    "favicon.ico": {
+      "checksum": "05db0663bddd7be49717443e6d2cbd8c"
+    },
     "logo.png": {
       "checksum": "92d97ce44223789dea6eeb5294d7c814"
     },
     "report.qmd": {
-      "checksum": "a1d228a79750fb40cf4b6552f3d27388"
+      "checksum": "03f2aa8fe813243f9bf84a7c1cfc70a5"
     },
     "styles.scss": {
       "checksum": "b43d6d728e6f634efcdb422a464d7fce"
