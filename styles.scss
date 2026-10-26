@@ -36,16 +36,85 @@
   }
 }
 
-// Teal glow across the top of the page, fading to the page colour
+// Header backdrop (see the backdrop chunk in report.qmd): brand-colour glow
+// drifting slowly behind static isobars, fading out before the forecast
+
+$brand-aqua: #1fe3dd;
+$brand-cyan: #3dc8d8;
+$brand-ocean: #079ebe;
+$brand-deep: #10759c;
 
 body {
-  background-image: radial-gradient(ellipse at 50% 0%, rgba(20, 184, 166, 0.18), transparent 70%);
-  background-repeat: no-repeat;
-  background-size: 100% 600px;
+  --glow-strength: 0.3;
+  --isobar-colour: #{rgba($brand-deep, 0.3)};
 }
 
 body.quarto-dark {
-  background-image: radial-gradient(ellipse at 50% 0%, rgba(45, 212, 191, 0.14), transparent 70%);
+  --glow-strength: 0.22;
+  --isobar-colour: #{rgba($brand-aqua, 0.2)};
+}
+
+.page-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 900px;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000 45%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -25%;
+    opacity: var(--glow-strength);
+    background:
+      radial-gradient(30% 40% at 30% 30%, $brand-aqua, transparent 70%),
+      radial-gradient(35% 45% at 70% 25%, $brand-ocean, transparent 70%),
+      radial-gradient(30% 40% at 55% 55%, $brand-cyan, transparent 70%),
+      radial-gradient(25% 35% at 85% 50%, $brand-deep, transparent 70%);
+    animation: glow-drift 30s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes glow-drift {
+  from { transform: translate(-5%, -3%) rotate(-4deg); }
+  to { transform: translate(5%, 3%) rotate(4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-backdrop::before {
+    animation: none;
+  }
+}
+
+.isobars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+
+  path {
+    fill: none;
+    stroke: var(--isobar-colour);
+    stroke-width: 1.25;
+    vector-effect: non-scaling-stroke;
+  }
+
+  text {
+    fill: var(--isobar-colour);
+    font-size: 28px;
+    font-weight: 700;
+  }
+}
+
+// Keep the isobars out from under the current-conditions numbers
+
+.panel-tabset .tab-content {
+  background-color: rgba($body-bg, 0.9);
 }
 
 // gt writes fixed white backgrounds and dark text into each table's CSS, so

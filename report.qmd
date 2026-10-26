@@ -99,6 +99,54 @@ city_chart <- function(data, y_range, group) {
 ```
 
 ```{r}
+#| label: backdrop
+
+# Decorative header backdrop: drifting brand-colour glow (pure CSS) behind
+# weather-map isobars. The isobars are contours of a made-up pressure field with
+# a low and a high, so they never cross. Styling lives in styles.scss.
+grid_x <- seq(0, 1000, length.out = 201)
+grid_y <- seq(0, 600, length.out = 121)
+pressure_centres <- data.frame(
+  label = c("L", "H"),
+  x = c(260, 790),
+  y = c(230, 370),
+  strength = c(-16, 12),
+  spread = c(200, 240)
+)
+
+pressure <- outer(grid_x, grid_y, function(x, y) {
+  field <- 1012 + 0.004 * (y - 300)
+  for (i in seq_len(nrow(pressure_centres))) {
+    centre <- pressure_centres[i, ]
+    field <- field + centre$strength *
+      exp(-((x - centre$x)^2 + (y - centre$y)^2) / (2 * centre$spread^2))
+  }
+  field
+})
+
+isobars <- contourLines(grid_x, grid_y, pressure, levels = seq(990, 1030, by = 2))
+
+svg_tag <- function(name, ...) htmltools::tag(name, list(...))
+
+htmltools::div(
+  class = "page-backdrop", `aria-hidden` = "true",
+  svg_tag("svg",
+    class = "isobars", viewBox = "0 0 1000 600", preserveAspectRatio = "xMidYMid slice",
+    lapply(isobars, function(line) {
+      svg_tag("path", d = paste0("M", paste(sprintf("%.1f %.1f", line$x, line$y), collapse = " L")))
+    }),
+    lapply(seq_len(nrow(pressure_centres)), function(i) {
+      svg_tag("text",
+        x = pressure_centres$x[i], y = pressure_centres$y[i],
+        `text-anchor` = "middle", `dominant-baseline` = "central",
+        pressure_centres$label[i]
+      )
+    })
+  )
+)
+```
+
+```{r}
 #| label: fetch
 
 query <- c(
