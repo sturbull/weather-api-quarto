@@ -17,6 +17,7 @@ library(dplyr)
 library(tidyr)
 library(echarts4r)
 library(gt)
+library(leaflet)
 
 nz_tz <- "Pacific/Auckland"
 
@@ -103,7 +104,7 @@ url <- paste0(
 # With several locations, Open-Meteo returns one row per location, in request order
 res <- jsonlite::fromJSON(url)
 
-current <- bind_cols(select(cities, city), res$current) |>
+current <- bind_cols(cities, res$current) |>
   mutate(
     conditions = unname(weather_codes[as.character(weather_code)]),
     wind = paste(round(wind_speed_10m), "km/h", compass(wind_direction_10m))
@@ -125,6 +126,10 @@ observed_at <- as.POSIXct(current$time[1], format = "%Y-%m-%dT%H:%M", tz = nz_tz
 Conditions as of **`r format(observed_at, "%A %d %B %Y, %H:%M")`** (NZ time). This page re-renders on a schedule, so each refresh pulls the latest forecast from [Open-Meteo](https://open-meteo.com/).
 
 ## Current conditions
+
+::: {.panel-tabset}
+
+### Table
 
 ```{r}
 #| label: current-table
@@ -149,6 +154,47 @@ current |>
   cols_align(align = "right", columns = c(temperature_2m, apparent_temperature, relative_humidity_2m, precipitation)) |>
   tab_options(table.width = pct(100))
 ```
+
+### Map
+
+Click a city for full conditions.
+
+```{r}
+#| label: current-map
+
+# Labels sit right of the marker, except where they would cover a neighbouring city
+left_labels <- c("Nelson", "Queenstown")
+
+add_city_markers <- function(map, data, direction) {
+  map |>
+    addCircleMarkers(
+      data = data,
+      lng = ~longitude, lat = ~latitude,
+      radius = 7, color = "#ffffff", weight = 2,
+      fillColor = "#333333", fillOpacity = 1,
+      label = ~paste0(city, " ", round(temperature_2m), "°C"),
+      labelOptions = labelOptions(
+        noHide = TRUE, direction = direction, textsize = "13px",
+        offset = if (direction == "left") c(-8, 0) else c(8, 0)
+      ),
+      popup = ~paste0(
+        "<strong>", city, "</strong><br>",
+        conditions, "<br>",
+        sprintf("%.1f", temperature_2m), " °C (feels like ", sprintf("%.1f", apparent_temperature), " °C)<br>",
+        "Humidity ", relative_humidity_2m, "%<br>",
+        "Wind ", wind, "<br>",
+        "Rain ", sprintf("%.1f", precipitation), " mm"
+      )
+    )
+}
+
+leaflet(height = 560, options = leafletOptions(zoomSnap = 0.25)) |>
+  addProviderTiles(providers$Esri.WorldGrayCanvas) |>
+  add_city_markers(filter(current, !city %in% left_labels), "right") |>
+  add_city_markers(filter(current, city %in% left_labels), "left")
+```
+
+:::
 
 ## 7-day forecast
 
