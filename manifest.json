@@ -3261,7 +3261,10 @@
   },
   "files": {
     "report.qmd": {
-      "checksum": "ad5d422cc5a918cdd568d9b556ea4a82"
+      "checksum": "3008a00ee0d2f3e00d11b0aa0597dfa6"
+    },
+    "styles.scss": {
+      "checksum": "00b450f85057ee621d8a8f4d724c5962"
     }
   },
   "users": null

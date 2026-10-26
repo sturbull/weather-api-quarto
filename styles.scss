@@ -1,0 +1,134 @@
+/*-- scss:rules --*/
+
+// Small-multiple chart grid
+
+.small-multiples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.small-multiple-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+// Beams background (see the beams chunk in report.qmd)
+
+body {
+  --beam-1: #5eead4;
+  --beam-2: #14b8a6;
+  --beam-3: #0f766e;
+  --beam-track: rgba(20, 184, 166, 0.07);
+  --beam-opacity: 0.55;
+}
+
+body.quarto-dark {
+  --beam-1: #99f6e4;
+  --beam-2: #2dd4bf;
+  --beam-3: #0d9488;
+  --beam-track: rgba(45, 212, 191, 0.05);
+  --beam-opacity: 0.45;
+}
+
+.beams {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+
+  path {
+    fill: none;
+    stroke-width: 1.5;
+  }
+
+  .beam-track {
+    stroke: var(--beam-track);
+  }
+
+  // pathLength = 1, so the dash is 18% of the beam and the gap hides the rest
+  // The gradient stroke is set as an SVG attribute, because embed-resources
+  // tries to inline any url() in the stylesheet as a file
+  .beam {
+    stroke-linecap: round;
+    stroke-dasharray: 0.18 1.2;
+    opacity: 0;
+    animation-name: beam-sweep;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  .beam-stop-1 { stop-color: var(--beam-1); }
+  .beam-stop-2 { stop-color: var(--beam-2); }
+  .beam-stop-3 { stop-color: var(--beam-3); }
+}
+
+@keyframes beam-sweep {
+  0% { stroke-dashoffset: 0.18; opacity: 0; }
+  15% { opacity: var(--beam-opacity); }
+  85% { opacity: var(--beam-opacity); }
+  100% { stroke-dashoffset: -1; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beams .beam {
+    animation: none;
+  }
+}
+
+// gt writes fixed white backgrounds and dark text into each table's CSS, so
+// clear them and let the table take the page's colours in both themes
+
+.gt_table,
+.gt_table th,
+.gt_table td,
+.gt_table tr,
+.gt_table thead,
+.gt_table tbody,
+.gt_group_heading,
+.gt_sourcenote {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+.gt_table .gt_striped {
+  background-color: rgba(128, 128, 128, 0.08) !important;
+}
+
+// Dark mode for widgets that set their own colours
+
+body.quarto-dark {
+  .gt_table,
+  .gt_table th,
+  .gt_table td,
+  .gt_table tbody,
+  .gt_table thead {
+    border-color: #444 !important;
+  }
+
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+  }
+
+  .leaflet-container {
+    background: #222;
+  }
+
+  path.leaflet-interactive {
+    fill: #e6e6e6;
+    stroke: #222;
+  }
+
+  .leaflet-tooltip,
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    background: #303030;
+    color: #e6e6e6;
+    border-color: #444;
+  }
+
+  .leaflet-tooltip-left::before { border-left-color: #303030; }
+  .leaflet-tooltip-right::before { border-right-color: #303030; }
+}

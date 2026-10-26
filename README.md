@@ -15,7 +15,7 @@ Or from a terminal: `quarto render report.qmd`.
 Posit Connect Cloud installs R packages from `manifest.json`. Regenerate it after adding or removing packages in `report.qmd`:
 
 ```r
-rsconnect::writeManifest(appPrimaryDoc = "report.qmd", appFiles = "report.qmd", quarto = TRUE)
+rsconnect::writeManifest(appPrimaryDoc = "report.qmd", appFiles = c("report.qmd", "styles.scss"), quarto = TRUE)
 ```
 
 ## Publish on a schedule

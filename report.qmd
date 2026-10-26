@@ -4,6 +4,10 @@ format:
   html:
     embed-resources: true
     page-layout: full
+    theme:
+      light: [default, styles.scss]
+      dark: [darkly, styles.scss]
+    respect-user-color-scheme: true
 execute:
   echo: false
   warning: false
@@ -57,23 +61,79 @@ high_colour <- "#eb6834"
 low_colour <- "#2a78d6"
 rain_colour <- "#2a78d6"
 
-# One small chart per city, laid out in a grid that wraps on narrow screens
+# Chart canvases don't follow the page's light/dark toggle, so axis ink is a
+# mid-tone that reads on both backgrounds
+axis_colour <- "#898781"
+gridline_colour <- "rgba(137, 135, 129, 0.25)"
+
+# One small chart per city, laid out in a grid that wraps on narrow screens.
+# City names are HTML rather than chart titles so they follow the page theme.
 small_multiples <- function(charts) {
   htmltools::div(
-    style = "display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;",
-    charts
+    class = "small-multiples",
+    lapply(names(charts), function(name) {
+      htmltools::div(htmltools::div(class = "small-multiple-title", name), charts[[name]])
+    })
   )
 }
 
-city_chart <- function(data, name, y_range, group) {
+city_chart <- function(data, y_range, group) {
   data |>
-    e_charts(day, height = 240) |>
-    e_title(name, left = 0, textStyle = list(fontSize = 14)) |>
-    e_grid(left = 36, right = 8, top = 40, bottom = 28) |>
-    e_y_axis(min = y_range[1], max = y_range[2]) |>
+    e_charts(day, height = 220) |>
+    e_grid(left = 36, right = 8, top = 32, bottom = 28) |>
+    e_x_axis(
+      axisLabel = list(color = axis_colour),
+      axisLine = list(lineStyle = list(color = axis_colour))
+    ) |>
+    e_y_axis(
+      min = y_range[1], max = y_range[2],
+      axisLabel = list(color = axis_colour),
+      splitLine = list(lineStyle = list(color = gridline_colour))
+    ) |>
     e_tooltip(trigger = "axis") |>
     e_group(group)
 }
+```
+
+```{r}
+#| label: beams
+
+# Decorative background: curved teal beams, each with a light sweeping along it.
+# Animation and colours live in styles.scss.
+beam_count <- 20
+beam_starts <- seq(-500, 400, length.out = beam_count)
+
+beam_path <- function(x) {
+  sprintf("M%.0f 700C%.0f 250 %.0f 550 %.0f -100", x, x + 200, x + 650, x + 900)
+}
+
+svg_tag <- function(name, ...) htmltools::tag(name, list(...))
+
+htmltools::tag("svg", list(
+  class = "beams", viewBox = "0 0 1000 600", preserveAspectRatio = "xMidYMid slice",
+  `aria-hidden` = "true",
+  svg_tag("defs",
+    svg_tag("linearGradient",
+      id = "beam-gradient", gradientUnits = "userSpaceOnUse",
+      x1 = "0", y1 = "600", x2 = "1000", y2 = "0",
+      svg_tag("stop", class = "beam-stop-1", offset = "0"),
+      svg_tag("stop", class = "beam-stop-2", offset = "0.5"),
+      svg_tag("stop", class = "beam-stop-3", offset = "1")
+    )
+  ),
+  lapply(seq_len(beam_count), function(i) {
+    path <- beam_path(beam_starts[i])
+    # Cycles of 4 to 7.2 seconds with staggered starts, so beams never move in step
+    duration <- 4 + ((i * 1.7) %% 3.2)
+    svg_tag("g",
+      svg_tag("path", class = "beam-track", d = path),
+      svg_tag("path",
+        class = "beam", d = path, pathLength = "1", stroke = "url(#beam-gradient)",
+        style = sprintf("animation-duration: %.2fs; animation-delay: -%.2fs;", duration, (i * 0.83) %% duration)
+      )
+    )
+  })
+))
 ```
 
 ```{r}
@@ -210,15 +270,15 @@ temp_range <- c(
   ceiling(max(daily$temperature_2m_max) / 5) * 5
 )
 
-temp_charts <- lapply(levels(daily$city), function(name) {
+temp_charts <- sapply(levels(daily$city), function(name) {
   daily |>
     filter(city == name) |>
-    city_chart(name, temp_range, group = "temperature") |>
+    city_chart(temp_range, group = "temperature") |>
     e_line(temperature_2m_max, name = "High", symbolSize = 8) |>
     e_line(temperature_2m_min, name = "Low", symbolSize = 8) |>
     e_color(c(high_colour, low_colour)) |>
-    e_legend(right = 0, top = 0)
-})
+    e_legend(right = 0, top = 0, textStyle = list(color = axis_colour))
+}, simplify = FALSE)
 temp_charts[[length(temp_charts)]] <- e_connect_group(temp_charts[[length(temp_charts)]], "temperature")
 
 small_multiples(temp_charts)
@@ -231,17 +291,17 @@ small_multiples(temp_charts)
 
 rain_range <- c(0, max(5, ceiling(max(daily$precipitation_sum) / 5) * 5))
 
-rain_charts <- lapply(levels(daily$city), function(name) {
+rain_charts <- sapply(levels(daily$city), function(name) {
   daily |>
     filter(city == name) |>
-    city_chart(name, rain_range, group = "rain") |>
+    city_chart(rain_range, group = "rain") |>
     e_bar(
       precipitation_sum, name = "Rain",
       barWidth = "50%", itemStyle = list(borderRadius = c(4, 4, 0, 0))
     ) |>
     e_color(rain_colour) |>
     e_legend(show = FALSE)
-})
+}, simplify = FALSE)
 rain_charts[[length(rain_charts)]] <- e_connect_group(rain_charts[[length(rain_charts)]], "rain")
 
 small_multiples(rain_charts)
