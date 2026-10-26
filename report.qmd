@@ -1,5 +1,6 @@
 ---
-title: "New Zealand weather report"
+title: "![](logo.png){.title-logo fig-alt=\"Synergia Analytics logo\"} New Zealand weather report"
+pagetitle: "New Zealand weather report"
 format:
   html:
     embed-resources: true
@@ -93,47 +94,6 @@ city_chart <- function(data, y_range, group) {
     e_tooltip(trigger = "axis") |>
     e_group(group)
 }
-```
-
-```{r}
-#| label: beams
-
-# Decorative background: curved teal beams, each with a light sweeping along it.
-# Animation and colours live in styles.scss.
-beam_count <- 20
-beam_starts <- seq(-500, 400, length.out = beam_count)
-
-beam_path <- function(x) {
-  sprintf("M%.0f 700C%.0f 250 %.0f 550 %.0f -100", x, x + 200, x + 650, x + 900)
-}
-
-svg_tag <- function(name, ...) htmltools::tag(name, list(...))
-
-htmltools::tag("svg", list(
-  class = "beams", viewBox = "0 0 1000 600", preserveAspectRatio = "xMidYMid slice",
-  `aria-hidden` = "true",
-  svg_tag("defs",
-    svg_tag("linearGradient",
-      id = "beam-gradient", gradientUnits = "userSpaceOnUse",
-      x1 = "0", y1 = "600", x2 = "1000", y2 = "0",
-      svg_tag("stop", class = "beam-stop-1", offset = "0"),
-      svg_tag("stop", class = "beam-stop-2", offset = "0.5"),
-      svg_tag("stop", class = "beam-stop-3", offset = "1")
-    )
-  ),
-  lapply(seq_len(beam_count), function(i) {
-    path <- beam_path(beam_starts[i])
-    # Cycles of 4 to 7.2 seconds with staggered starts, so beams never move in step
-    duration <- 4 + ((i * 1.7) %% 3.2)
-    svg_tag("g",
-      svg_tag("path", class = "beam-track", d = path),
-      svg_tag("path",
-        class = "beam", d = path, pathLength = "1", stroke = "url(#beam-gradient)",
-        style = sprintf("animation-duration: %.2fs; animation-delay: -%.2fs;", duration, (i * 0.83) %% duration)
-      )
-    )
-  })
-))
 ```
 
 ```{r}
@@ -334,4 +294,8 @@ daily |>
 ```
 :::
 
+::: {.report-footer}
 Weather data by [Open-Meteo.com](https://open-meteo.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+Powered by Synergia Analytics
+:::

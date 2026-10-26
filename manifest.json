@@ -3260,11 +3260,14 @@
     }
   },
   "files": {
+    "logo.png": {
+      "checksum": "92d97ce44223789dea6eeb5294d7c814"
+    },
     "report.qmd": {
-      "checksum": "3008a00ee0d2f3e00d11b0aa0597dfa6"
+      "checksum": "a1d228a79750fb40cf4b6552f3d27388"
     },
     "styles.scss": {
-      "checksum": "00b450f85057ee621d8a8f4d724c5962"
+      "checksum": "b43d6d728e6f634efcdb422a464d7fce"
     }
   },
   "users": null
