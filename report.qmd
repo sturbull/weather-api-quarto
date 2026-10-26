@@ -1,0 +1,231 @@
+---
+title: "New Zealand weather report"
+format:
+  html:
+    embed-resources: true
+    page-layout: full
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+
+library(dplyr)
+library(tidyr)
+library(echarts4r)
+library(gt)
+
+nz_tz <- "Pacific/Auckland"
+
+# Main centres, ordered north to south
+cities <- tribble(
+  ~city,          ~latitude, ~longitude,
+  "Auckland",       -36.85,   174.76,
+  "Tauranga",       -37.69,   176.17,
+  "Napier",         -39.49,   176.91,
+  "Wellington",     -41.29,   174.78,
+  "Nelson",         -41.27,   173.28,
+  "Christchurch",   -43.53,   172.64,
+  "Queenstown",     -45.03,   168.66,
+  "Dunedin",        -45.87,   170.50
+)
+
+# WMO weather interpretation codes, as documented at https://open-meteo.com/en/docs
+weather_codes <- c(
+  "0" = "Clear", "1" = "Mainly clear", "2" = "Partly cloudy", "3" = "Overcast",
+  "45" = "Fog", "48" = "Freezing fog",
+  "51" = "Light drizzle", "53" = "Drizzle", "55" = "Heavy drizzle",
+  "56" = "Light freezing drizzle", "57" = "Freezing drizzle",
+  "61" = "Light rain", "63" = "Rain", "65" = "Heavy rain",
+  "66" = "Light freezing rain", "67" = "Freezing rain",
+  "71" = "Light snow", "73" = "Snow", "75" = "Heavy snow", "77" = "Snow grains",
+  "80" = "Light showers", "81" = "Showers", "82" = "Violent showers",
+  "85" = "Light snow showers", "86" = "Snow showers",
+  "95" = "Thunderstorm", "96" = "Thunderstorm with hail", "99" = "Thunderstorm with heavy hail"
+)
+
+compass <- function(degrees) {
+  points <- c("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+  points[(round(degrees / 45) %% 8) + 1]
+}
+
+high_colour <- "#eb6834"
+low_colour <- "#2a78d6"
+rain_colour <- "#2a78d6"
+
+# One small chart per city, laid out in a grid that wraps on narrow screens
+small_multiples <- function(charts) {
+  htmltools::div(
+    style = "display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;",
+    charts
+  )
+}
+
+city_chart <- function(data, name, y_range, group) {
+  data |>
+    e_charts(day, height = 240) |>
+    e_title(name, left = 0, textStyle = list(fontSize = 14)) |>
+    e_grid(left = 36, right = 8, top = 40, bottom = 28) |>
+    e_y_axis(min = y_range[1], max = y_range[2]) |>
+    e_tooltip(trigger = "axis") |>
+    e_group(group)
+}
+```
+
+```{r}
+#| label: fetch
+
+query <- c(
+  latitude = paste(cities$latitude, collapse = ","),
+  longitude = paste(cities$longitude, collapse = ","),
+  current = paste(
+    "temperature_2m", "apparent_temperature", "relative_humidity_2m", "precipitation",
+    "weather_code", "wind_speed_10m", "wind_direction_10m",
+    sep = ","
+  ),
+  daily = paste(
+    "weather_code", "temperature_2m_max", "temperature_2m_min",
+    "precipitation_sum", "precipitation_probability_max",
+    sep = ","
+  ),
+  timezone = nz_tz,
+  forecast_days = 7
+)
+
+url <- paste0(
+  "https://api.open-meteo.com/v1/forecast?",
+  paste(names(query), utils::URLencode(query, reserved = TRUE), sep = "=", collapse = "&")
+)
+
+# With several locations, Open-Meteo returns one row per location, in request order
+res <- jsonlite::fromJSON(url)
+
+current <- bind_cols(select(cities, city), res$current) |>
+  mutate(
+    conditions = unname(weather_codes[as.character(weather_code)]),
+    wind = paste(round(wind_speed_10m), "km/h", compass(wind_direction_10m))
+  )
+
+daily <- res$daily |>
+  mutate(city = cities$city) |>
+  unnest(cols = -city) |>
+  mutate(
+    city = factor(city, levels = cities$city),
+    date = as.Date(time),
+    day = format(date, "%a %d"),
+    conditions = unname(weather_codes[as.character(weather_code)])
+  )
+
+observed_at <- as.POSIXct(current$time[1], format = "%Y-%m-%dT%H:%M", tz = nz_tz)
+```
+
+Conditions as of **`r format(observed_at, "%A %d %B %Y, %H:%M")`** (NZ time). This page re-renders on a schedule, so each refresh pulls the latest forecast from [Open-Meteo](https://open-meteo.com/).
+
+## Current conditions
+
+```{r}
+#| label: current-table
+
+current |>
+  select(
+    city, conditions, temperature_2m, apparent_temperature,
+    relative_humidity_2m, wind, precipitation
+  ) |>
+  gt() |>
+  cols_label(
+    city = "City",
+    conditions = "Conditions",
+    temperature_2m = "Temp (°C)",
+    apparent_temperature = "Feels like (°C)",
+    relative_humidity_2m = "Humidity (%)",
+    wind = "Wind",
+    precipitation = "Rain (mm)"
+  ) |>
+  fmt_number(columns = c(temperature_2m, apparent_temperature), decimals = 1) |>
+  fmt_number(columns = precipitation, decimals = 1) |>
+  cols_align(align = "right", columns = c(temperature_2m, apparent_temperature, relative_humidity_2m, precipitation)) |>
+  tab_options(table.width = pct(100))
+```
+
+## 7-day forecast
+
+### Daily high and low (°C)
+
+Hover over a day to see that day's values in every city.
+
+```{r}
+#| label: temp-chart
+
+temp_range <- c(
+  floor(min(daily$temperature_2m_min) / 5) * 5,
+  ceiling(max(daily$temperature_2m_max) / 5) * 5
+)
+
+temp_charts <- lapply(levels(daily$city), function(name) {
+  daily |>
+    filter(city == name) |>
+    city_chart(name, temp_range, group = "temperature") |>
+    e_line(temperature_2m_max, name = "High", symbolSize = 8) |>
+    e_line(temperature_2m_min, name = "Low", symbolSize = 8) |>
+    e_color(c(high_colour, low_colour)) |>
+    e_legend(right = 0, top = 0)
+})
+temp_charts[[length(temp_charts)]] <- e_connect_group(temp_charts[[length(temp_charts)]], "temperature")
+
+small_multiples(temp_charts)
+```
+
+### Daily rainfall (mm)
+
+```{r}
+#| label: rain-chart
+
+rain_range <- c(0, max(5, ceiling(max(daily$precipitation_sum) / 5) * 5))
+
+rain_charts <- lapply(levels(daily$city), function(name) {
+  daily |>
+    filter(city == name) |>
+    city_chart(name, rain_range, group = "rain") |>
+    e_bar(
+      precipitation_sum, name = "Rain",
+      barWidth = "50%", itemStyle = list(borderRadius = c(4, 4, 0, 0))
+    ) |>
+    e_color(rain_colour) |>
+    e_legend(show = FALSE)
+})
+rain_charts[[length(rain_charts)]] <- e_connect_group(rain_charts[[length(rain_charts)]], "rain")
+
+small_multiples(rain_charts)
+```
+
+::: {.callout-note collapse="true"}
+## Forecast table
+
+```{r}
+#| label: forecast-table
+
+daily |>
+  select(
+    city, date, conditions, temperature_2m_min, temperature_2m_max,
+    precipitation_sum, precipitation_probability_max
+  ) |>
+  group_by(city) |>
+  gt() |>
+  cols_label(
+    date = "Date",
+    conditions = "Conditions",
+    temperature_2m_min = "Min (°C)",
+    temperature_2m_max = "Max (°C)",
+    precipitation_sum = "Rain (mm)",
+    precipitation_probability_max = "Chance of rain (%)"
+  ) |>
+  fmt_date(columns = date, date_style = "wd_m_day_year") |>
+  fmt_number(columns = c(temperature_2m_min, temperature_2m_max, precipitation_sum), decimals = 1) |>
+  tab_options(table.width = pct(100))
+```
+:::
+
+Weather data by [Open-Meteo.com](https://open-meteo.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
